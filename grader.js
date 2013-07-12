@@ -26,6 +26,23 @@ var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = "http://pacific-gorge-3098.herokuapp.com/"
+var rest = require('restler');
+
+
+
+// In case of URL option passed via -u or --url check it is a url - harshit
+var assertURLExists = function (value) {
+    var urlregex = new RegExp("^(http:\/\/www.|https:\/\/www.|ftp:\/\/www.|www.){1}([0-9A-Za-z]+\.)");
+    if (urlregex.test(value)) {
+        return value.toString();
+    }
+    else {
+        console.log("%s is not a valid URL. Exiting.", value);
+        process.exit(1);
+    }
+}
+
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -35,6 +52,8 @@ var assertFileExists = function(infile) {
     }
     return instr;
 };
+
+
 
 var cheerioHtmlFile = function(htmlfile) {
     return cheerio.load(fs.readFileSync(htmlfile));
@@ -55,6 +74,40 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     return out;
 };
 
+
+// function to load urlcontent to cheerio
+var cheerioHtmlUrl = function(url) {
+
+    return cheerio.load(function (url) {
+			// Using restler to parse the app url to be graded -harshit 
+			rest.get('http://pacific-gorge-3098.herokuapp.com/').on('complete', function(result) {
+			    if (result instanceof Error) {
+				sys.puts('Error: ' + result.message);
+				process.exit(1);
+				// this.retry(5000); // to try again after 5 sec
+			    } else {
+				// sys.puts(result); // here we get the url to string if it is real url
+				urltostring= result.toString();
+				return urltostring ;
+			    }
+			});
+
+		       );
+
+}
+
+// function to chcek html passed as string -harshit
+var checkHtmlUrl = function(urlcontent , checksfile) {
+    $ = cheerioHtmlUrl(urlcontent);
+    var checks = loadChecks(checksfile).sort();
+    var out = {};
+    for(var ii in checks) {
+	var present = $(checks[ii]).length > 0;
+	out[checks[ii]] = present;
+	}
+    return out;
+}
+
 var clone = function(fn) {
     // Workaround for commander.js issue.
     // http://stackoverflow.com/a/6772648
@@ -65,6 +118,7 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+	.option('-u , --url <url>','URL to be checked', clone(assertURLExists), URL_DEFAULT)
         .parse(process.argv);
     var checkJson = checkHtmlFile(program.file, program.checks);
     var outJson = JSON.stringify(checkJson, null, 4);
